@@ -331,9 +331,13 @@ var Simulator = (function () {
         var SPLAT_DEPTH = 5;
 
         for (var z = -(SPLAT_DEPTH - 1) / 2; z <= (SPLAT_DEPTH - 1) / 2; ++z) {
+            GlobalProfiler.pushContext("transferToGrid_1_"+z)
             transferToGridDrawState.uniform1f('u_zOffset', z);
             wgl.drawArrays(transferToGridDrawState, wgl.POINTS, 0, this.particlesWidth * this.particlesHeight);
+            GlobalProfiler.popContext("transferToGrid_1_"+z)
         }
+        GlobalProfiler.popContext("transferToGrid")
+        GlobalProfiler.pushContext("transferToGrid_2")
 
         //accumulate (weight * velocity)
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.tempVelocityTexture, 0);
@@ -344,11 +348,13 @@ var Simulator = (function () {
         transferToGridDrawState.uniform1i('u_accumulate', 1)
 
         for (var z = -(SPLAT_DEPTH - 1) / 2; z <= (SPLAT_DEPTH - 1) / 2; ++z) {
+            GlobalProfiler.pushContext("transferToGrid_2_"+z)
             transferToGridDrawState.uniform1f('u_zOffset', z);
             wgl.drawArrays(transferToGridDrawState, wgl.POINTS, 0, this.particlesWidth * this.particlesHeight);
+            GlobalProfiler.popContext("transferToGrid_2_"+z)
         }
 
-        GlobalProfiler.popContext("transferToGrid")
+        GlobalProfiler.popContext("transferToGrid_2")
 
         //in the second step, we divide sum(weight * velocity) by sum(weight) (the two accumulated quantities from before)
 
