@@ -299,6 +299,8 @@ var Simulator = (function () {
 
         //we accumulate into velocityWeightTexture and then divide into velocityTexture
 
+        GlobalProfiler.pushContext("transferToGrid")
+
         var transferToGridDrawState = wgl.createDrawState()
             .bindFramebuffer(this.simulationFramebuffer)
             .viewport(0, 0, this.velocityTextureWidth, this.velocityTextureHeight)
@@ -346,8 +348,11 @@ var Simulator = (function () {
             wgl.drawArrays(transferToGridDrawState, wgl.POINTS, 0, this.particlesWidth * this.particlesHeight);
         }
 
+        GlobalProfiler.popContext("transferToGrid")
 
         //in the second step, we divide sum(weight * velocity) by sum(weight) (the two accumulated quantities from before)
+
+        GlobalProfiler.pushContext("normalize")
 
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.velocityTexture, 0);
 
@@ -363,9 +368,12 @@ var Simulator = (function () {
 
         wgl.drawArrays(normalizeDrawState, wgl.TRIANGLE_STRIP, 0, 4);
 
+        GlobalProfiler.popContext("normalize")
 
         //////////////////////////////////////////////////////
         // mark cells with fluid
+
+        GlobalProfiler.pushContext("markCell")
 
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.markerTexture, 0);
         wgl.clear(
@@ -385,9 +393,12 @@ var Simulator = (function () {
 
         wgl.drawArrays(markDrawState, wgl.POINTS, 0, this.particlesWidth * this.particlesHeight);
 
+        GlobalProfiler.popContext("markCell")
+
         ////////////////////////////////////////////////////
         // save our original velocity grid
 
+        GlobalProfiler.pushContext("copyVelocity")
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.originalVelocityTexture, 0);
 
         var copyDrawState = wgl.createDrawState()
@@ -400,12 +411,13 @@ var Simulator = (function () {
             .uniformTexture('u_texture', 0, wgl.TEXTURE_2D, this.velocityTexture)
 
         wgl.drawArrays(copyDrawState, wgl.TRIANGLE_STRIP, 0, 4);
+        GlobalProfiler.popContext("copyVelocity")
 
 
         /////////////////////////////////////////////////////
         // add forces to velocity grid
 
-
+        GlobalProfiler.pushContext("addForce")
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.tempVelocityTexture, 0);
 
         var addForceDrawState = wgl.createDrawState()
@@ -431,11 +443,13 @@ var Simulator = (function () {
         wgl.drawArrays(addForceDrawState, wgl.TRIANGLE_STRIP, 0, 4);
 
         swap(this, 'velocityTexture', 'tempVelocityTexture');
+        GlobalProfiler.popContext("addForce")
 
         
         /////////////////////////////////////////////////////
         // enforce boundary velocity conditions
 
+        GlobalProfiler.pushContext("enforceBoundaries")
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.tempVelocityTexture, 0);
 
         var enforceBoundariesDrawState = wgl.createDrawState()
@@ -451,6 +465,7 @@ var Simulator = (function () {
         wgl.drawArrays(enforceBoundariesDrawState, wgl.TRIANGLE_STRIP, 0, 4);
 
         swap(this, 'velocityTexture', 'tempVelocityTexture');
+        GlobalProfiler.popContext("enforceBoundaries")
 
 
         /////////////////////////////////////////////////////
@@ -459,6 +474,7 @@ var Simulator = (function () {
 
          //compute divergence for pressure projection
 
+        GlobalProfiler.pushContext("divergence")
         var divergenceDrawState = wgl.createDrawState()
             
             .bindFramebuffer(this.simulationFramebuffer)
@@ -480,10 +496,12 @@ var Simulator = (function () {
             wgl.COLOR_BUFFER_BIT);
         
         wgl.drawArrays(divergenceDrawState, wgl.TRIANGLE_STRIP, 0, 4);
+        GlobalProfiler.popContext("divergence")
         
         
         //compute pressure via jacobi iteration
 
+        GlobalProfiler.pushContext("jacobi")
         var jacobiDrawState = wgl.createDrawState()
             .bindFramebuffer(this.simulationFramebuffer)
             .viewport(0, 0, this.scalarTextureWidth, this.scalarTextureHeight)
@@ -510,10 +528,12 @@ var Simulator = (function () {
             
             swap(this, 'pressureTexture', 'tempSimulationTexture');
         }
+        GlobalProfiler.popContext("jacobi")
         
         
         //subtract pressure gradient from velocity
 
+        GlobalProfiler.pushContext("subtract")
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.tempVelocityTexture, 0);
 
         var subtractDrawState = wgl.createDrawState()
@@ -531,10 +551,12 @@ var Simulator = (function () {
         wgl.drawArrays(subtractDrawState, wgl.TRIANGLE_STRIP, 0, 4);
         
         swap(this, 'velocityTexture', 'tempVelocityTexture');
+        GlobalProfiler.popContext("subtract")
 
         /////////////////////////////////////////////////////////////
         // transfer velocities back to particles
 
+        GlobalProfiler.pushContext("G2P")
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.particleVelocityTextureTemp, 0);
 
         var transferToParticlesDrawState = wgl.createDrawState()
@@ -554,13 +576,14 @@ var Simulator = (function () {
             .uniform1f('u_flipness', this.flipness)
 
         wgl.drawArrays(transferToParticlesDrawState, wgl.TRIANGLE_STRIP, 0, 4);
+        GlobalProfiler.popContext("G2P")
 
         swap(this, 'particleVelocityTextureTemp', 'particleVelocityTexture');
 
         ///////////////////////////////////////////////
         // advect particle positions with velocity grid using RK2
 
-
+        GlobalProfiler.pushContext("advect")
         wgl.framebufferTexture2D(this.simulationFramebuffer, wgl.FRAMEBUFFER, wgl.COLOR_ATTACHMENT0, wgl.TEXTURE_2D, this.particlePositionTextureTemp, 0);
         wgl.clear(
             wgl.createClearState().bindFramebuffer(this.simulationFramebuffer),
@@ -583,6 +606,7 @@ var Simulator = (function () {
             .uniform2f('u_particlesResolution', this.particlesWidth, this.particlesHeight);
 
         wgl.drawArrays(advectDrawState, wgl.TRIANGLE_STRIP, 0, 4);
+        GlobalProfiler.popContext("advect")
 
         swap(this, 'particlePositionTextureTemp', 'particlePositionTexture');
     }

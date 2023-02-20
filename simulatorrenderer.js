@@ -4,6 +4,8 @@ var SimulatorRenderer = (function () {
         this.wgl = wgl;
         this.projectionMatrix = projectionMatrix;
         this.camera = camera;
+        // this.profiler = new WebGLProfiler(canvas.getContext('webgl'));
+
 
 
         wgl.getExtension('OES_texture_float');
@@ -103,8 +105,14 @@ var SimulatorRenderer = (function () {
             mouseVelocity[i] = mouseVelocityX * cameraRight[i] + mouseVelocityY * cameraUp[i];
         }
 
-        this.simulator.simulate(timeStep, mouseVelocity, this.camera.getPosition(), worldSpaceMouseRay);
-        this.renderer.draw(this.simulator, this.projectionMatrix, this.camera.getViewMatrix());
+        GlobalProfiler.withContext("MainLoop", () => {
+            GlobalProfiler.withContext("Simulate", () => {
+                this.simulator.simulate(timeStep, mouseVelocity, this.camera.getPosition(), worldSpaceMouseRay);
+              })        
+              GlobalProfiler.withContext("Draw", () => {
+                this.renderer.draw(this.simulator, this.projectionMatrix, this.camera.getViewMatrix());
+              })
+          })
     }
 
     SimulatorRenderer.prototype.onResize = function (event) {

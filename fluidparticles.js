@@ -18,6 +18,7 @@ var FluidParticles = (function () {
 
         var canvas = this.canvas = document.getElementById('canvas');
         var wgl = this.wgl = new WrappedGL(canvas);
+        GlobalProfiler = new WebGLProfiler(canvas.getContext('webgl'));
 
         window.wgl = wgl;
 
@@ -354,6 +355,7 @@ var FluidParticles = (function () {
         this.simulatorRenderer.reset(particlesWidth, particlesHeight, particlePositions, gridSize, gridResolution, PARTICLES_PER_CELL, sphereRadius);
 
         this.camera.setBounds(0, Math.PI / 2);
+        GlobalProfiler.start()
     }
 
     //go back to box editing
@@ -362,6 +364,7 @@ var FluidParticles = (function () {
         this.state = State.EDITING;
 
         this.camera.setBounds(-Math.PI / 4, Math.PI / 4);
+        GlobalProfiler.stopAndDownload()
     }
 
     FluidParticles.prototype.update = function () {
